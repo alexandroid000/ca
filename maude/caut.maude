@@ -1,0 +1,142 @@
+--- Cellular Automata in Maude
+--- ==========================
+
+--- Cellular Cultures
+--- -----------------
+
+fmod CELLULAR-CULTURE is
+
+    sorts State States State? .
+    subsort State < States State? .
+    sorts StateLabel StateKey .
+    sorts Cell Culture .
+    subsort Cell < Culture .
+
+    sorts Clock Dish .
+
+--- ### Cell
+
+    op _::_    : StateLabel State        -> Cell .
+    op _::_->_ : StateLabel State State? -> Cell [prec 57] .
+
+--- ### Culture
+
+    op mt  : -> Culture [ctor] .
+    op _;_ : Culture Culture -> Culture
+             [assoc comm idem id: mt prec 60 format(d n d d)] .
+
+--- ### Computing Next State
+
+    op mt   : -> States .
+    op __   : States   States     -> States [assoc comm id: mt prec 55] .
+    op _[_] : StateKey State      -> States .
+    op _[_] : StateKey StateLabel -> States .
+
+    op {_}       : States     -> State? .
+    op neighbors : StateLabel -> State? .
+
+--- ### Neighbor Lookup
+
+    vars N N' : StateLabel .
+    vars S S' : State .
+    var  SS   : States .
+    var  S?   : State? .
+    var  SK   : StateKey .
+
+    eq   N :: S -> { SK[N] SS }
+       = N :: S -> { SK[S] SS } .
+
+    eq   N :: S -> { SK[N'] SS } ; N' :: S' -> S?
+       = N :: S -> { SK[S'] SS } ; N' :: S' -> S? .
+
+--- ### Life Cycle
+
+    ops tick tock : -> Clock .
+    op  _{_}      : Clock Culture -> Dish [format(d n s n d)].
+
+    var  C    : Culture .
+
+    eq   tick { N :: S                 ; C }
+       = tick { N :: S -> neighbors(N) ; C } .
+
+    eq   tock { N :: S -> S' ; C }
+       = tock { N :: S'      ; C } .
+endfm
+
+--- Our Simulation
+--- --------------
+
+fmod DISH-PARAMETERS is
+    protecting INT .
+    protecting RANDOM .
+    extending CELLULAR-CULTURE .
+
+    sort Point .
+    subsort Point < StateLabel .
+
+    --- Labels are indices in a 5X5 Circular Grid
+
+    op (_,_) : Int Int -> Point .
+    op pt    : Int -> Point .
+
+    vars N M : Int .
+
+    ops width height : -> Nat .
+    eq  width  = 5 .
+    eq  height = 5 .
+    eq  pt(N) = (N rem width, N quo width) .
+
+    ceq (N,M) = (N - width, M)  if N >= width .
+    ceq (N,M) = (N, M - height) if M >= height .
+    ceq (N,M) = (N + width, M)  if N < 0 .
+    ceq (N,M) = (N, M + height) if M < 0 .
+
+    --- States are either `X` or `-`
+    --- The neighborhood is the current cell + adjacent cells
+
+    ops X - : -> State .
+    ops up down left right self : -> StateKey .
+
+    eq neighbors((N,M)) = { up    [(N , M + 1)]
+                            left  [(N - 1 , M)]
+                            down  [(N , M - 1)]
+                            right [(N + 1 , M)]
+                            self  [(N , M)]
+                          } .
+
+    var SL : StateLabel .
+    var SS : States .
+    var S? : State? .
+    vars U D L R S : State .
+
+    --- calculate the next state as a function of the neighborhood
+
+    eq { up[U] down[D] left[L] right[R] self[S] }
+        = if (U == X and D == X)
+          or (L == - and R == X)
+          or (S == - and D == X and L == -)
+          then X
+          else -
+          fi .
+
+    --- generate a random 5X5 grid
+
+    var Rn : Nat .
+
+    op init    : -> Culture .
+    op genInit : Nat -> Culture .
+
+    eq  init = genInit(0) .
+    ceq genInit(Rn) = mt if Rn == width * height .
+    ceq genInit(Rn)  = genInit(Rn + 1)
+                     ; pt(Rn) :: if random(Rn) rem 2 == 0 then X else - fi if Rn < 25 .
+endfm
+
+mod CELLULAR-AUTOMATA is
+    extending DISH-PARAMETERS .
+
+    --- once all dish simplifications are done, push clock forward
+
+    rl [tock] : tick => tock .
+    rl [tick] : tock => tick .
+endm
