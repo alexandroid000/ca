@@ -108,7 +108,7 @@ fmod DISH-PARAMETERS is
     eq S -> up[X] down[X] left[L] right[R] = S -> X .
     eq S -> up[U] down[D] left[-] right[X] = S -> X .
     eq - -> up[-] down[X] left[-] right[-] = - -> X .
-    eq S -> up[U] down[D] left[L] right[R] = S -> - .
+    eq S -> up[U] down[D] left[L] right[R] = S -> - [owise] .
 
     --- generate a random 5X5 grid
 
