@@ -1,80 +1,84 @@
 fmod CELLULAR-AUTOMATA is
-    protecting QID .
-
-    sorts State StateLabel Neighborhood .
-    subsort Qid < StateLabel < State < Neighborhood .
+    sorts State State? .
+    subsort State < State? .
+    sorts StateLabel StateKey .
     sorts Cell Culture .
     subsort Cell < Culture .
 
     sort Dish .
     sort Clock .
-    sort TransitionFunction .
 
-    op mt : -> Neighborhood .
-    op __ : State Neighborhood -> Neighborhood [assoc] .
-
-    op _::_{_}    : StateLabel State       Neighborhood -> Cell .
-    op _::_->_{_} : StateLabel State State Neighborhood -> Cell .
+    op _::_    : StateLabel State        -> Cell .
+    op _::_->_ : StateLabel State State? -> Cell [prec 57] .
 
     op mt  : -> Culture [ctor] .
-    op _,_ : Culture Culture -> Culture [assoc comm id: mt prec 60] .
+    op _,_ : Culture Culture -> Culture [assoc comm idem id: mt prec 60] .
+
+    op mt   : -> State? .
+    op _[_] : StateKey State      -> State? .
+    op _[_] : StateKey StateLabel -> State? .
+    op __   : State?   State?     -> State? [assoc comm id: mt prec 55] .
+
+    vars N N'   : StateLabel .
+    vars S S'   : State .
+    vars S? S?' : State? .
+    var  SK     : StateKey .
+    var  C      : Culture .
+
+    eq   N :: S -> SK[N] S?
+       = N :: S -> SK[S] S? .
+
+    eq   N :: S -> SK[N'] S? , N' :: S' -> S?'
+       = N :: S -> SK[S'] S? , N' :: S' -> S?' .
+
+    ops up down left right : -> StateKey .
 
     ops tick tock : -> Clock .
+    op neighbors  : StateLabel -> State? .
+    op _{_}       : Clock Culture -> Dish .
 
-    op nextState : Neighborhood -> State .
+    eq   tick { N :: S                 , C }
+       = tick { N :: S -> neighbors(N) , C } .
 
-    op _[_] : Clock Culture -> Dish .
-
-    vars N N1       : StateLabel .
-    vars S S1 S1'   : State .
-    vars NB NB' NB1 : Neighborhood .
-    var  C          : Culture .
-
-    eq    tick [ N :: S                       { NB } , C ]
-        = tick [ N :: S -> (nextState(NB) mt) { NB } , C ] .
-
-    eq   N :: S -> nextState(N1 NB') mt { NB } , N1 :: S1 -> S1' { NB1 }
-       = N :: S -> S1 nextState(NB') mt { NB } , N1 :: S1 -> S1' { NB1 } .
+    eq   tock { N :: S -> S' , C }
+       = tock { N :: S'      , C } .
 endfm
-
 
 fmod TESTING is
     extending CELLULAR-AUTOMATA .
+    protecting INT .
 
-    subsort Nat < StateLabel .
+    sort Point .
+    subsort Point < StateLabel .
+
+    op (_,_) : Int Int -> Point .
+    op pt    : Int -> Point .
+
+    vars N M : Int .
+
+    --- 5x5 circular grid
+    ops width height : -> Nat .
+    eq  width  = 5 .
+    eq  height = 5 .
+    eq  pt(N) = (N rem width, N quo width) .
+
+    ceq (N,M) = (N - width, M)  if N >= width .
+    ceq (N,M) = (N, M - height) if M >= height .
+    ceq (N,M) = (N + width, M)  if N < 0 .
+    ceq (N,M) = (N, M + height) if M < 0 .
 
     ops X - : -> State .
 
-    op newGrid : Point Point Neighborhood -> Culture .
-    op newGrid : Nat Nat Neighborhood -> Culture .
-    op (_,_)   : Nat Nat -> Point .
-    op nbhd    : Point Point -> Neighborhood .
-    op s_      : Point -> Point .
+    var SL : StateLabel .
+    var S  : State .
+    var S? : State? .
 
-    vars W1 L1 W L : Nat .
-    var  S         : State .
-    var  NB        : Neighborhood .
+    eq neighbors((N,M)) = up[(N , M + 1)]
+                          left[(N - 1 , M)]
+                          down[(N , M - 1)]
+                          right[(N + 1 , M)] .
 
-    eq  newGrid(W, L, NB) = newGrid((0,0), (W,L), NB) .
-
-    eq  newGrid((W, L1), (W, L), NB) = newGrid((0, L1), (W, L), NB) .
-    ceq   newGrid((W1, L1), (W, L), S NB)
-        = newGrid((W1+1, L1), (W, L), S NB) , N :: S { nbhd((W1, L1), (W, L)) }
-        .
-    newGrid((W1+1, L1), W, NB) .
-    ceq newGrid(N, W, L, mt)   = mt if N == W * L .
-
-    ceq nbhd(N,W,L) = N (N - W) (N + 1) (N + W) (N - 1) mt
-        if N < W * (L-1)
-        /\ N >= W
-        /\ .
-    ceq nbhd(N,W,L) = N (N - W) (N + 1) (N + W) (N - 1) mt
-        if N < W * L .
-
-
-
-    op fromGrid : Nat Nat -> Dish .
-
-    eq newSim = tick [ 'x :: X { 'x 'y 'z mt }
-                     , 'y :: X { 'x
+    eq SL :: S -> up[X] down[X] S?    = SL :: X .
+    eq SL :: S -> left[X] down[-] S?  = SL :: X .
+    eq SL :: S -> left[-] right[-] S? = SL :: - [owise] .
 endfm
