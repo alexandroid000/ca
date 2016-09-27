@@ -108,15 +108,17 @@ To drive the whole simulation forward, we'll need a `Clock` which switches back
 and forth between two states, `tick` and `tock`. A `Clock` together with a
 `Culture` is a `Dish`.
 
+```maude
+    ops tick tock : -> Clock .
+    op  _{_}      : Clock Culture -> Dish [format(d n s n d)].
+```
+
 Notice that on `tick`, any unactivated `Cell` is activated by querying the
 `neighbors` function to get the relevant state from the surrounding `Culture`.
 On `tock` the simplified `Cell`s which have already computed their next state
 are deactivated.
 
 ```maude
-    ops tick tock : -> Clock .
-    op  _{_}      : Clock Culture -> Dish [format(d n s n d)].
-
     var  C    : Culture .
 
     eq   tick { N :: S                 ; C }
