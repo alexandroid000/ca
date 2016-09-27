@@ -1,0 +1,80 @@
+fmod CELLULAR-AUTOMATA is
+    protecting QID .
+
+    sorts State StateLabel Neighborhood .
+    subsort Qid < StateLabel < State < Neighborhood .
+    sorts Cell Culture .
+    subsort Cell < Culture .
+
+    sort Dish .
+    sort Clock .
+    sort TransitionFunction .
+
+    op mt : -> Neighborhood .
+    op __ : State Neighborhood -> Neighborhood [assoc] .
+
+    op _::_{_}    : StateLabel State       Neighborhood -> Cell .
+    op _::_->_{_} : StateLabel State State Neighborhood -> Cell .
+
+    op mt  : -> Culture [ctor] .
+    op _,_ : Culture Culture -> Culture [assoc comm id: mt prec 60] .
+
+    ops tick tock : -> Clock .
+
+    op nextState : Neighborhood -> State .
+
+    op _[_] : Clock Culture -> Dish .
+
+    vars N N1       : StateLabel .
+    vars S S1 S1'   : State .
+    vars NB NB' NB1 : Neighborhood .
+    var  C          : Culture .
+
+    eq    tick [ N :: S                       { NB } , C ]
+        = tick [ N :: S -> (nextState(NB) mt) { NB } , C ] .
+
+    eq   N :: S -> nextState(N1 NB') mt { NB } , N1 :: S1 -> S1' { NB1 }
+       = N :: S -> S1 nextState(NB') mt { NB } , N1 :: S1 -> S1' { NB1 } .
+endfm
+
+
+fmod TESTING is
+    extending CELLULAR-AUTOMATA .
+
+    subsort Nat < StateLabel .
+
+    ops X - : -> State .
+
+    op newGrid : Point Point Neighborhood -> Culture .
+    op newGrid : Nat Nat Neighborhood -> Culture .
+    op (_,_)   : Nat Nat -> Point .
+    op nbhd    : Point Point -> Neighborhood .
+    op s_      : Point -> Point .
+
+    vars W1 L1 W L : Nat .
+    var  S         : State .
+    var  NB        : Neighborhood .
+
+    eq  newGrid(W, L, NB) = newGrid((0,0), (W,L), NB) .
+
+    eq  newGrid((W, L1), (W, L), NB) = newGrid((0, L1), (W, L), NB) .
+    ceq   newGrid((W1, L1), (W, L), S NB)
+        = newGrid((W1+1, L1), (W, L), S NB) , N :: S { nbhd((W1, L1), (W, L)) }
+        .
+    newGrid((W1+1, L1), W, NB) .
+    ceq newGrid(N, W, L, mt)   = mt if N == W * L .
+
+    ceq nbhd(N,W,L) = N (N - W) (N + 1) (N + W) (N - 1) mt
+        if N < W * (L-1)
+        /\ N >= W
+        /\ .
+    ceq nbhd(N,W,L) = N (N - W) (N + 1) (N + W) (N - 1) mt
+        if N < W * L .
+
+
+
+    op fromGrid : Nat Nat -> Dish .
+
+    eq newSim = tick [ 'x :: X { 'x 'y 'z mt }
+                     , 'y :: X { 'x
+endfm
