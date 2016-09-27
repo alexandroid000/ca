@@ -42,12 +42,13 @@ fmod CELLULAR-CULTURE is
 
 `Cell`s store a different amount of data, depending on whether they are
 "activated" or not. They always store their own `StateLabel` and their own
-`State`. When "activated" (second line), they also store a `State?`, which
-represents the state it will move into on the deactivation cycle.
+`State?`. A `State?` can just be a regular `State` (by subsorting), or it can be
+a `State` and a `States` (using the `_->_` operator), meaning the `Cell` is
+activated and calculating its next state.
 
 ```maude
-    op _::_    : StateLabel State        -> Cell .
-    op _::_->_ : StateLabel State State? -> Cell [prec 57] .
+    op _->_ : State States -> State? [prec 56] .
+    op _::_ : StateLabel State? -> Cell [prec 57] .
 ```
 
 ### Culture
@@ -74,7 +75,6 @@ neighboring state, we'll use a marker `StateKey`, which can hold either the
     op _[_] : StateKey State      -> States .
     op _[_] : StateKey StateLabel -> States .
 
-    op {_}       : States     -> State? .
     op neighbors : StateLabel -> State? .
 ```
 
@@ -89,17 +89,16 @@ could be that the `StateLabel` refers to our own state, which needs to be
 handled specially.
 
 ```maude
-    vars N N' : StateLabel .
-    vars S S' : State .
-    var  SS   : States .
-    var  S?   : State? .
-    var  SK   : StateKey .
+    vars N N'   : StateLabel .
+    vars S S'   : State .
+    var  SS SS' : States .
+    var  SK     : StateKey .
 
-    eq   N :: S -> { SK[N] SS }
-       = N :: S -> { SK[S] SS } .
+    eq   N :: S -> SK[N] SS
+       = N :: S -> SK[S] SS .
 
-    eq   N :: S -> { SK[N'] SS } ; N' :: S' -> S?
-       = N :: S -> { SK[S'] SS } ; N' :: S' -> S? .
+    eq   N :: S -> SK[N'] SS ; N' :: S' -> SS'
+       = N :: S -> SK[S'] SS ; N' :: S' -> SS' .
 ```
 
 ### Life Cycle
@@ -116,7 +115,8 @@ and forth between two states, `tick` and `tock`. A `Clock` together with a
 Notice that on `tick`, any unactivated `Cell` is activated by querying the
 `neighbors` function to get the relevant state from the surrounding `Culture`.
 On `tock` the simplified `Cell`s which have already computed their next state
-are deactivated.
+are deactivated (notice we use variable `S'`, which is of sort `State`, not of
+sort `State?`).
 
 ```maude
     var  C    : Culture .
@@ -162,29 +162,22 @@ fmod DISH-PARAMETERS is
     --- The neighborhood is the current cell + adjacent cells
 
     ops X - : -> State .
-    ops up down left right self : -> StateKey .
+    ops up down left right : -> StateKey .
 
-    eq neighbors((N,M)) = { up    [(N , M + 1)]
-                            left  [(N - 1 , M)]
-                            down  [(N , M - 1)]
-                            right [(N + 1 , M)]
-                            self  [(N , M)]
-                          } .
+    eq neighbors((N,M)) = up    [(N , M + 1)]
+                          left  [(N - 1 , M)]
+                          down  [(N , M - 1)]
+                          right [(N + 1 , M)]
+                          .
 
-    var SL : StateLabel .
-    var SS : States .
-    var S? : State? .
-    vars U D L R S : State .
+    vars S U D L R : State .
 
     --- calculate the next state as a function of the neighborhood
 
-    eq { up[U] down[D] left[L] right[R] self[S] }
-        = if (U == X and D == X)
-          or (L == - and R == X)
-          or (S == - and D == X and L == -)
-          then X
-          else -
-          fi .
+    eq S -> up[X] down[X] left[L] right[R] = S -> X .
+    eq S -> up[U] down[D] left[-] right[X] = S -> X .
+    eq - -> up[-] down[X] left[-] right[-] = - -> X .
+    eq S -> up[U] down[D] left[L] right[R] = S -> - .
 
     --- generate a random 5X5 grid
 
@@ -194,9 +187,11 @@ fmod DISH-PARAMETERS is
     op genInit : Nat -> Culture .
 
     eq  init = genInit(0) .
-    ceq genInit(Rn) = mt if Rn == width * height .
-    ceq genInit(Rn)  = genInit(Rn + 1)
-                     ; pt(Rn) :: if random(Rn) rem 2 == 0 then X else - fi if Rn < 25 .
+    ceq genInit(Rn) = mt
+        if Rn == width * height .
+    ceq genInit(Rn) = genInit(Rn + 1)
+                    ; pt(Rn) :: if random(Rn) rem 2 == 0 then X else - fi
+        if Rn < 25 .
 endfm
 ```
 
